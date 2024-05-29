@@ -426,7 +426,7 @@ export const PriceRangePlot: React.FC<IPriceRangePlot> = ({
     disabled
   )
 
-  // mb task 4
+  // mb front end task 4
   const [showVolumeHeatmap, setShowVolumeHeatmap] = useState(false)
   interface VolumeData {
     p1: number
