@@ -1,9 +1,16 @@
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { Layer, ResponsiveLine } from '@nivo/line'
 // @ts-expect-error
 import { linearGradientDef } from '@nivo/core'
 import { colors, theme } from '@static/theme'
-import { Button, Grid, Typography, useMediaQuery } from '@material-ui/core'
+import {
+  Button,
+  FormControlLabel,
+  Grid,
+  Switch,
+  Typography,
+  useMediaQuery
+} from '@material-ui/core'
 import classNames from 'classnames'
 import ZoomInIcon from '@static/svg/zoom-in-icon.svg'
 import ZoomOutIcon from '@static/svg/zoom-out-icon.svg'
@@ -419,6 +426,73 @@ export const PriceRangePlot: React.FC<IPriceRangePlot> = ({
     disabled
   )
 
+  // mb task 4
+  const [showVolumeHeatmap, setShowVolumeHeatmap] = useState(false)
+  interface VolumeData {
+    p1: number
+    p2: number
+    volume: number
+  }
+
+  interface ConcentrationData extends VolumeData {
+    concentration: number
+  }
+
+  const calculateConcentration = (volumes: VolumeData[]): ConcentrationData[][] => {
+    const concentrations: ConcentrationData[] = volumes.map(({ p1, p2, volume }) => ({
+      p1,
+      p2,
+      volume,
+      concentration: volume / Math.abs(p1 - p2)
+    }))
+
+    concentrations.sort((a, b) => b.concentration - a.concentration)
+
+    const categories: ConcentrationData[][] = Array.from({ length: 5 }, () => [])
+
+    concentrations.forEach((item, index) => {
+      categories[index % 5].push(item)
+    })
+
+    return categories
+  }
+
+  const volumeData: VolumeData[] = [
+    { p1: -5, p2: -1, volume: 40000 },
+    { p1: -1, p2: 1, volume: 60000 },
+    { p1: 1, p2: 2, volume: 15000 },
+    { p1: 2, p2: 4, volume: 10000 },
+    { p1: 5, p2: 10, volume: 15000 }
+  ]
+
+  const categorizedVolumes = useMemo(() => calculateConcentration(volumeData), [volumeData])
+
+  const volumeHeatmapLayer: Layer = ({ innerWidth, innerHeight }) => {
+    if (!showVolumeHeatmap) return null
+
+    const unitLen = innerWidth / (plotMax - plotMin)
+    const maxConcentration = Math.max(...categorizedVolumes.flat().map(item => item.concentration))
+
+    return (
+      <svg width={innerWidth} height={innerHeight}>
+        {categorizedVolumes.flat().map(({ p1, p2, volume, concentration }, index) => {
+          const transparency = concentration / maxConcentration
+          return (
+            <rect
+              key={index}
+              x={(Math.min(p1, p2) - plotMin) * unitLen}
+              y={0}
+              width={Math.abs(p2 - p1) * unitLen}
+              height={innerHeight}
+              fill={`rgba(0, 255, 0, ${transparency})`}>
+              <title>Volume: {volume}</title>
+            </rect>
+          )
+        })}
+      </svg>
+    )
+  }
+
   return (
     <Grid
       container
@@ -452,6 +526,17 @@ export const PriceRangePlot: React.FC<IPriceRangePlot> = ({
           <img src={ZoomOutIcon} className={classes.zoomIcon} />
         </Button>
       </Grid>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={showVolumeHeatmap}
+            onChange={() => setShowVolumeHeatmap(!showVolumeHeatmap)}
+            name='volumeHeatmap'
+            color='primary'
+          />
+        }
+        label='Volume Heatmap'
+      />
       <ResponsiveLine
         data={[
           {
@@ -508,6 +593,7 @@ export const PriceRangePlot: React.FC<IPriceRangePlot> = ({
           currentLayer,
           volumeRangeLayer,
           brushLayer,
+          volumeHeatmapLayer,
           'axes',
           'legends'
         ]}
